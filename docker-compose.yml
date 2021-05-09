@@ -1,0 +1,174 @@
+version: '3.8'
+
+networks:
+  setelnetwork:
+    name: setelnetwork
+    
+services:
+  mcs-mysql:
+    container_name: mcs-mysql
+    image: mysql
+    build: 
+      context: ./mysql
+    cap_add:
+    - SYS_NICE
+    environment: 
+    - MYSQL_USER=${MYSQL_USER}
+    - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    - TZ=${WORKSPACE_TIMEZONE}
+    volumes: 
+    - ${DATA_PATH_HOST}/mysql:/var/lib/mysql
+    networks: 
+    - setelnetwork
+    restart: always
+    ports:
+    - ${DATABASE_PORT}:3306
+  
+  mcs-redis:
+    container_name: mcs-redis
+    image: redis:6.0.5-alpine
+    ports:
+    - ${REDIS_PORT}:6379
+    volumes: 
+    - ${DATA_PATH_HOST}/redis:/data
+    networks: 
+    - setelnetwork
+    restart: always
+  
+  mcs-amqp:
+    container_name: mcs-amqp
+    image: rabbitmq:3-management
+    ports:
+    - ${AMQP_PORT}:5672
+    - ${AMQP_MNG_PORT}:15672
+    volumes:
+    - ${DATA_PATH_HOST}/amqp:/data
+    networks: 
+    - setelnetwork
+
+  mcs-auth-service:
+    container_name: mcs-auth-service
+    image: mcs-auth-service
+    build: 
+      context: .
+      dockerfile: services/auth/Dockerfile
+      args:
+      - GIT_URL=https://${GIT_USER}:${GIT_PASS}@github.com/tanhp1506/setel_test_auth_service.git
+      - GIT_BRANCH=${GIT_BRANCH}
+    command:
+    - /bin/sh
+    - -c
+    - /wait && pm2-runtime ecosystem.config.js
+    environment:
+    - PORT=3000
+    - SERVICE_PORT=3001
+    - DATABASE_HOST=mcs-mysql
+    - DATABASE_PORT=3306
+    - DATABASE_USER=${DATABASE_USER}
+    - DATABASE_PASS=${DATABASE_PASS}
+    - DATABASE_NAME=${AUTH_DATABASE_NAME}
+    - REDIS_PORT=6379
+    - REDIS_HOST=mcs-redis
+    - AMQP_URL=amqp://mcs-amqp:5672
+    - AMQP_AUTH_QUEUE=${AMQP_AUTH_QUEUE}
+    - AMQP_ORDER_QUEUE=${AMQP_ORDER_QUEUE}
+    - AMQP_PAYMENT_QUEUE=${AMQP_PAYMENT_QUEUE}
+    - WAIT_HOSTS=mcs-mysql:3306
+    - WAIT_HOSTS_TIMEOUT=300
+    - WAIT_SLEEP_INTERVAL=30
+    - WAIT_HOST_CONNECT_TIMEOUT=30
+    depends_on: 
+    - mcs-mysql
+    - mcs-amqp
+    - mcs-redis
+    networks: 
+    - setelnetwork
+    restart: always
+    ports: 
+    - ${AUTH_API_PORT}:3000
+    - ${AUTH_SERVICE_PORT}:3001
+
+  mcs-order-service:
+    container_name: mcs-order-service
+    image: mcs-order-service
+    build: 
+      context: .
+      dockerfile: services/order/Dockerfile
+      args:
+      - GIT_URL=https://${GIT_USER}:${GIT_PASS}@github.com/tanhp1506/setel_test_order_service.git
+      - GIT_BRANCH=${GIT_BRANCH}
+    command:
+    - /bin/sh
+    - -c
+    - /wait && pm2-runtime ecosystem.config.js
+    environment:
+    - PORT=3000
+    - SERVICE_PORT=3001
+    - DATABASE_HOST=mcs-mysql
+    - DATABASE_PORT=3306
+    - DATABASE_USER=${DATABASE_USER}
+    - DATABASE_PASS=${DATABASE_PASS}
+    - DATABASE_NAME=${ORDER_DATABASE_NAME}
+    - REDIS_PORT=6379
+    - REDIS_HOST=mcs-redis
+    - AMQP_URL=amqp://mcs-amqp:5672
+    - AMQP_AUTH_QUEUE=${AMQP_AUTH_QUEUE}
+    - AMQP_ORDER_QUEUE=${AMQP_ORDER_QUEUE}
+    - AMQP_PAYMENT_QUEUE=${AMQP_PAYMENT_QUEUE}
+    - WAIT_HOSTS=mcs-mysql:3306
+    - WAIT_HOSTS_TIMEOUT=300
+    - WAIT_SLEEP_INTERVAL=30
+    - WAIT_HOST_CONNECT_TIMEOUT=30
+    depends_on: 
+    - mcs-mysql
+    - mcs-amqp
+    - mcs-redis
+    networks: 
+    - setelnetwork
+    restart: always
+    ports: 
+    - ${ORDER_API_PORT}:3000
+    - ${ORDER_SERVICE_PORT}:3001
+
+  mcs-payment-service:
+    container_name: mcs-payment-service
+    image: mcs-payment-service
+    build: 
+      context: .
+      dockerfile: services/payment/Dockerfile
+      args:
+      - GIT_URL=https://${GIT_USER}:${GIT_PASS}@github.com/tanhp1506/setel_test_payment_service.git
+      - GIT_BRANCH=${GIT_BRANCH}
+    command:
+    - /bin/sh
+    - -c
+    - /wait && pm2-runtime ecosystem.config.js
+    environment:
+    - PORT=3000
+    - SERVICE_PORT=3001
+    - DATABASE_HOST=mcs-mysql
+    - DATABASE_PORT=3306
+    - DATABASE_USER=${DATABASE_USER}
+    - DATABASE_PASS=${DATABASE_PASS}
+    - DATABASE_NAME=${PAYMENT_DATABASE_NAME}
+    - REDIS_PORT=6379
+    - REDIS_HOST=mcs-redis
+    - AMQP_URL=amqp://mcs-amqp:5672
+    - AMQP_AUTH_QUEUE=${AMQP_AUTH_QUEUE}
+    - AMQP_ORDER_QUEUE=${AMQP_ORDER_QUEUE}
+    - AMQP_PAYMENT_QUEUE=${AMQP_PAYMENT_QUEUE}
+    - WAIT_HOSTS=mcs-mysql:3306
+    - WAIT_HOSTS_TIMEOUT=300
+    - WAIT_SLEEP_INTERVAL=30
+    - WAIT_HOST_CONNECT_TIMEOUT=30
+    depends_on: 
+    - mcs-mysql
+    - mcs-amqp
+    - mcs-redis
+    networks: 
+    - setelnetwork
+    restart: always
+    ports: 
+    - ${PAYMENT_API_PORT}:3000
+    - ${PAYMENT_SERVICE_PORT}:3001
