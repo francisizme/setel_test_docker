@@ -1,4 +1,4 @@
-# Setup Docker swarm
+# Setup Docker containers
 
 ```shell
 git clone
